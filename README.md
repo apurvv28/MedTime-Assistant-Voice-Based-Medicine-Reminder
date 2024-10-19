@@ -1,4 +1,4 @@
-1. Copy the app.py code in your main.py file.
+1. Copy the main.py code in your main.py file.
 2. Modules to Install : a. Flask
                        b. PyMongo
                        c. Flask_PyMongo
