@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reminder App</title>
+    <style>
+        /* Your existing CSS */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+        
+        form {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        label {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            border-color: #007bff;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        li {
+            background-color: #ffffff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reminder-time {
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Reminder App</h1>
+
+    <form id="add-reminder-form">
+        <!-- Patient ID Input -->
+        <label for="patient_id">Patient ID:</label>
+        <input type="text" id="patient_id" name="patient_id" required>
+
+        <label for="medicine">Medicine Name:</label>
+        <input type="text" id="medicine" name="medicine" required>
+
+        <label for="time">Reminder Time (HH:MM):</label>
+        <input type="text" id="time" name="time" placeholder="e.g., 14:30" required>
+
+        <button type="submit">Add Reminder</button>
+    </form>
+
+    <h2>Patients</h2>
+    <ul id="patient-list"></ul>
+
+    <h2>Reminders for Patient</h2>
+    <ul id="reminder-list"></ul>
+
+    <script>
+        const form = document.getElementById('add-reminder-form');
+        const patientList = document.getElementById('patient-list');
+        const reminderList = document.getElementById('reminder-list');
+
+        // Fetch and display patient IDs
+        const fetchPatients = async () => {
+            try {
+                const response = await fetch('/get_patient_ids');
+                const data = await response.json();
+                patientList.innerHTML = '';  // Clear existing patients
+                data.patient_ids.forEach(patient_id => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span>Patient ID: ${patient_id}</span>
+                        <button onclick="fetchReminders('${patient_id}')">View Reminders</button>
+                    `;
+                    patientList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error fetching patients:', error);
+            }
+        };
+
+        // Fetch reminders for a specific patient
+        const fetchReminders = async (patient_id) => {
+            try {
+                const response = await fetch(`/get_reminders/${patient_id}`);
+                const reminders = await response.json();
+                reminderList.innerHTML = '';  // Clear existing reminders
+                reminders.forEach(reminder => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span><strong>${reminder.medicine}</strong> at ${reminder.time}</span>
+                                    <button class="delete-btn" data-id="${reminder.id}">Delete</button>`;
+                    reminderList.appendChild(li);
+
+                    // Add delete button functionality
+                    const deleteBtn = li.querySelector('.delete-btn');
+                    deleteBtn.addEventListener('click', async () => {
+                        const reminderId = deleteBtn.getAttribute('data-id');
+                        await deleteReminder(reminderId);
+                        li.remove();  // Remove the reminder from the list
+                    });
+                });
+            } catch (error) {
+                console.error('Error fetching reminders:', error);
+            }
+        };
+
+        // Add a new reminder
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const patient_id = document.getElementById('patient_id').value;
+            const medicine = document.getElementById('medicine').value;
+            const time = document.getElementById('time').value;
+
+            try {
+                const response = await fetch('/add_reminder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ patient_id, medicine, time })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message);
+                    fetchPatients();  // Reload the patient list
+                    form.reset();  // Clear the form
+                } else {
+                    alert('Error adding reminder');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        // Delete a reminder
+        const deleteReminder = async (id) => {
+            try {
+                const response = await fetch(`/delete_reminder/${id}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    alert('Reminder deleted successfully');
+                } else {
+                    alert('Error deleting reminder');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        };
+
+        // Fetch patients and reminders when the page loads
+        fetchPatients();
+    </script>
+
+</body>
+</html>
